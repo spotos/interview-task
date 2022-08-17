@@ -1,0 +1,49 @@
+services:
+  nginx:
+    image: nginx:1.21-alpine
+    volumes:
+      - type: bind
+        source: ./docker/images/nginx/default.conf
+        target: /etc/nginx/conf.d/default.conf
+      - tmp:/tmp/
+    ports:
+      - "8080:80"
+    depends_on:
+      api:
+        condition: service_started
+      redis:
+        condition: service_started
+
+  api:
+    build: ./docker/images/interview
+    volumes:
+      - .:/build
+      - tmp:/tmp/
+      - go_modules:/go/pkg/mod
+      - type: bind
+        source: ./docker/images/interview/config/supervisor.d/supervisord.conf
+        target: /etc/supervisor/supervisord.conf
+      - type: bind
+        source: ./docker/images/interview/config/supervisor.d/conf.d
+        target: /etc/supervisor/conf.d/
+    command: ["sh", "-c", "supervisord -c /etc/supervisor/supervisord.conf"]
+    depends_on:
+      pubsub:
+        condition: service_started
+
+  pubsub:
+    build: ./docker/images/pubsub
+    volumes:
+      - pubsub_data:/opt/queues
+
+  redis:
+    image: redis:6.0-alpine
+    ports:
+      - 6379:6379
+volumes:
+  tmp:
+    driver: local
+  go_modules:
+    driver: local
+  pubsub_data:
+    driver: local
