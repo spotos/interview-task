@@ -7,6 +7,8 @@ import (
 	"cloud.google.com/go/pubsub"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type (
@@ -110,8 +112,15 @@ func createTopic(ctx context.Context, client *pubsub.Client, topicID string) (*p
 	}
 
 	topic, err = client.CreateTopic(ctx, topicID)
+	if err != nil {
+		if errStatus, ok := status.FromError(err); ok && errStatus.Code() == codes.AlreadyExists {
+			return topic, nil
+		}
 
-	return topic, errors.Wrap(err, "create topic")
+		return nil, errors.Wrap(err, "create topic")
+	}
+
+	return topic, nil
 }
 
 func createSubscription(ctx context.Context, client *pubsub.Client, subscription Subscription) error {
